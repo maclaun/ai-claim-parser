@@ -6,6 +6,19 @@ Using **Groq (Llama 3.1 8B)** as the primary engine and **Google Gemini** as a s
 
 ---
 
+## 📸 Previews
+
+### 💻 Lead Automation Dashboard (Dark Theme)
+![Dashboard Preview](images/dashboard.png)
+
+### 🔗 n8n Automated Workflow
+![n8n Workflow Preview](images/n8n_workflow.png)
+
+### 🔔 Live Telegram Alerts
+![Telegram Alerts Preview](images/telegram_notification.png)
+
+---
+
 ## 🚀 Features
 
 *   **🧠 AI-Powered Parsing**: Uses structured output formats to extract names, incident dates, claim types, damage values, and generate brief summaries.
