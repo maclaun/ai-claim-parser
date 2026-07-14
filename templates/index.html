@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Claim Parser — Insurance Automation Dashboard</title>
+    <meta name="description" content="AI-powered insurance claim parser and lead automation dashboard. Process claims with Gemini AI.">
+
+    <!-- Tailwind CSS v3 CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81' },
+                        surface: { 50:'#f8fafc',100:'#f1f5f9',200:'#e2e8f0',700:'#334155',800:'#1e293b',900:'#0f172a',950:'#020617' },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        * { font-family: 'Inter', system-ui, sans-serif; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 3px; }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+        .animate-slide-in { animation: slideIn 0.4s ease-out forwards; }
+
+        .shimmer-loading {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        /* Toast */
+        .toast-enter { animation: fadeInUp 0.3s ease-out; }
+        .toast-exit { animation: fadeInUp 0.3s ease-in reverse forwards; }
+
+        /* Glass effect */
+        .glass {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+        }
+        .dark .glass-light {
+            background: rgba(30, 41, 59, 0.6);
+        }
+        html:not(.dark) .glass {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(99, 102, 241, 0.1);
+        }
+
+        /* Hover glow */
+        .glow-hover {
+            transition: box-shadow 0.3s ease, transform 0.2s ease;
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 25px rgba(99, 102, 241, 0.15);
+            transform: translateY(-1px);
+        }
+
+        /* Table row animation */
+        .claim-row { animation: fadeInUp 0.4s ease-out forwards; }
+        .claim-row:nth-child(even) { animation-delay: 0.05s; }
+
+        /* Status dot pulse */
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body class="dark:bg-surface-950 bg-surface-50 min-h-screen transition-colors duration-300">
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3"></div>
+
+    <!-- Top Navigation -->
+    <nav class="sticky top-0 z-40 glass">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-500/25">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold dark:text-white text-surface-900">ClaimAI</h1>
+                        <p class="text-[10px] font-medium dark:text-primary-400 text-primary-600 tracking-wider uppercase">Insurance Parser</p>
+                    </div>
+                </div>
+
+                <!-- Right side -->
+                <div class="flex items-center gap-4">
+                    <!-- API Status -->
+                    <div id="api-status" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
+                        {% if has_api_key %}
+                            dark:bg-emerald-500/10 bg-emerald-50 dark:text-emerald-400 text-emerald-700
+                        {% else %}
+                            dark:bg-amber-500/10 bg-amber-50 dark:text-amber-400 text-amber-700
+                        {% endif %}">
+                        <span class="status-dot {% if has_api_key %}bg-emerald-400{% else %}bg-amber-400{% endif %}"></span>
+                        {% if has_api_key %}Gemini AI Active{% else %}Mock Mode{% endif %}
+                    </div>
+
+                    <!-- Theme Toggle -->
+                    <button id="theme-toggle" class="p-2 rounded-xl dark:bg-surface-800 bg-surface-200 dark:text-surface-200 text-surface-700 hover:dark:bg-surface-700 hover:bg-surface-300 transition-all duration-200" title="Toggle theme">
+                        <svg id="icon-moon" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                        <svg id="icon-sun" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- Stats Bar -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div class="glass rounded-2xl p-4 glow-hover">
+                <p class="text-xs font-medium dark:text-surface-200/60 text-surface-700/60 uppercase tracking-wider">Total Claims</p>
+                <p id="stat-total" class="text-2xl font-bold dark:text-white text-surface-900 mt-1">{{ claims|length }}</p>
+            </div>
+            <div class="glass rounded-2xl p-4 glow-hover">
+                <p class="text-xs font-medium dark:text-surface-200/60 text-surface-700/60 uppercase tracking-wider">Pending</p>
+                <p id="stat-pending" class="text-2xl font-bold text-amber-400 mt-1">{{ claims|selectattr('status', 'equalto', 'Pending')|list|length }}</p>
+            </div>
+            <div class="glass rounded-2xl p-4 glow-hover">
+                <p class="text-xs font-medium dark:text-surface-200/60 text-surface-700/60 uppercase tracking-wider">Approved</p>
+                <p id="stat-approved" class="text-2xl font-bold text-emerald-400 mt-1">{{ claims|selectattr('status', 'equalto', 'Approved')|list|length }}</p>
+            </div>
+            <div class="glass rounded-2xl p-4 glow-hover">
+                <p class="text-xs font-medium dark:text-surface-200/60 text-surface-700/60 uppercase tracking-wider">Needs Review</p>
+                <p id="stat-review" class="text-2xl font-bold text-rose-400 mt-1">{{ claims|selectattr('status', 'equalto', 'Requires Human Review')|list|length }}</p>
+            </div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left Column: Submit Form -->
+            <div class="lg:col-span-1">
+                <div class="glass rounded-2xl p-6 glow-hover sticky top-24">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold dark:text-white text-surface-900">Simulate Email</h2>
+                            <p class="text-xs dark:text-surface-200/50 text-surface-700/60">Paste a claim email to process</p>
+                        </div>
+                    </div>
+
+                    <form id="claim-form" class="space-y-4">
+                        <div>
+                            <label for="sender_email" class="block text-xs font-semibold dark:text-surface-200/80 text-surface-700 mb-1.5 uppercase tracking-wider">Sender Email</label>
+                            <input type="email" id="sender_email" name="sender_email" required
+                                placeholder="client@example.com"
+                                class="w-full px-4 py-2.5 rounded-xl dark:bg-surface-900/80 bg-white border dark:border-surface-700/50 border-surface-200 dark:text-white text-surface-900 placeholder-surface-200/30 dark:placeholder-surface-200/30 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all text-sm">
+                        </div>
+
+                        <div>
+                            <label for="raw_text" class="block text-xs font-semibold dark:text-surface-200/80 text-surface-700 mb-1.5 uppercase tracking-wider">Claim Text</label>
+                            <textarea id="raw_text" name="raw_text" required rows="8"
+                                placeholder="My name is John Doe, on June 12th my car was hit by a truck near Warsaw. The repair cost is around 12000 PLN. Help me!"
+                                class="w-full px-4 py-2.5 rounded-xl dark:bg-surface-900/80 bg-white border dark:border-surface-700/50 border-surface-200 dark:text-white text-surface-900 placeholder-surface-200/20 dark:placeholder-surface-200/20 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all text-sm resize-none leading-relaxed"></textarea>
+                        </div>
+
+                        <button type="submit" id="submit-btn"
+                            class="w-full py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-semibold text-sm shadow-lg shadow-primary-500/25 hover:shadow-primary-500/40 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                            <span id="submit-text">Process with AI</span>
+                            <!-- Spinner (hidden by default) -->
+                            <svg id="submit-spinner" class="hidden animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <!-- Example Claims -->
+                    <div class="mt-5 pt-5 border-t dark:border-surface-700/30 border-surface-200">
+                        <p class="text-xs font-semibold dark:text-surface-200/50 text-surface-700/60 mb-3 uppercase tracking-wider">Quick Examples</p>
+                        <div class="space-y-2">
+                            <button onclick="fillExample(0)" class="w-full text-left px-3 py-2 rounded-lg dark:bg-surface-900/40 bg-surface-100 dark:text-surface-200/70 text-surface-700 text-xs hover:dark:bg-surface-800 hover:bg-surface-200 transition-colors">
+                                🚗 Car accident in Warsaw
+                            </button>
+                            <button onclick="fillExample(1)" class="w-full text-left px-3 py-2 rounded-lg dark:bg-surface-900/40 bg-surface-100 dark:text-surface-200/70 text-surface-700 text-xs hover:dark:bg-surface-800 hover:bg-surface-200 transition-colors">
+                                🏥 Medical malpractice
+                            </button>
+                            <button onclick="fillExample(2)" class="w-full text-left px-3 py-2 rounded-lg dark:bg-surface-900/40 bg-surface-100 dark:text-surface-200/70 text-surface-700 text-xs hover:dark:bg-surface-800 hover:bg-surface-200 transition-colors">
+                                🏠 Property flood damage
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Claims Table -->
+            <div class="lg:col-span-2">
+                <div class="glass rounded-2xl overflow-hidden">
+                    <!-- Table Header -->
+                    <div class="px-6 py-4 border-b dark:border-surface-700/30 border-surface-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-base font-bold dark:text-white text-surface-900">Parsed Claims</h2>
+                                <p class="text-xs dark:text-surface-200/50 text-surface-700/60">AI-processed insurance claims</p>
+                            </div>
+                        </div>
+                        <button onclick="refreshClaims()" id="refresh-btn" class="p-2 rounded-xl dark:bg-surface-800/60 bg-surface-100 dark:text-surface-200/70 text-surface-700 hover:dark:bg-surface-700 hover:bg-surface-200 transition-all" title="Refresh claims">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Claims List -->
+                    <div id="claims-container" class="divide-y dark:divide-surface-700/20 divide-surface-200/60">
+                        <!-- Empty State -->
+                        <div id="empty-state" class="{% if claims %}hidden{% endif %} py-16 text-center">
+                            <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-500/10 to-violet-500/10 flex items-center justify-center">
+                                <svg class="w-8 h-8 dark:text-primary-400/50 text-primary-500/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                                </svg>
+                            </div>
+                            <p class="dark:text-surface-200/50 text-surface-700/50 text-sm font-medium">No claims yet</p>
+                            <p class="dark:text-surface-200/30 text-surface-700/30 text-xs mt-1">Submit a claim email to get started</p>
+                        </div>
+
+                        <!-- Claims will be rendered here by JS -->
+                        <div id="claims-list">
+                            {% for claim in claims %}
+                            <div class="claim-row p-4 sm:p-5 hover:dark:bg-surface-800/30 hover:bg-surface-100/50 transition-colors" data-claim-id="{{ claim.id }}">
+                                <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                    <div class="flex-1 min-w-0">
+                                        <!-- Top row: name + badges -->
+                                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                                            <h3 class="font-semibold dark:text-white text-surface-900 text-sm">
+                                                {{ claim.client_name or 'Unknown Client' }}
+                                            </h3>
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
+                                                {% if claim.claim_type == 'Car Accident' %}
+                                                    dark:bg-blue-500/15 bg-blue-50 dark:text-blue-400 text-blue-700
+                                                {% elif claim.claim_type == 'Medical' %}
+                                                    dark:bg-pink-500/15 bg-pink-50 dark:text-pink-400 text-pink-700
+                                                {% elif claim.claim_type == 'Property Damage' %}
+                                                    dark:bg-orange-500/15 bg-orange-50 dark:text-orange-400 text-orange-700
+                                                {% elif claim.claim_type == 'Workplace Injury' %}
+                                                    dark:bg-yellow-500/15 bg-yellow-50 dark:text-yellow-400 text-yellow-700
+                                                {% else %}
+                                                    dark:bg-surface-500/15 bg-surface-100 dark:text-surface-200/70 text-surface-700
+                                                {% endif %}">
+                                                {{ claim.claim_type or 'Other' }}
+                                            </span>
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
+                                                {% if claim.status == 'Approved' %}
+                                                    dark:bg-emerald-500/15 bg-emerald-50 dark:text-emerald-400 text-emerald-700
+                                                {% elif claim.status == 'Pending' %}
+                                                    dark:bg-amber-500/15 bg-amber-50 dark:text-amber-400 text-amber-700
+                                                {% elif claim.status == 'Rejected' %}
+                                                    dark:bg-red-500/15 bg-red-50 dark:text-red-400 text-red-700
+                                                {% else %}
+                                                    dark:bg-rose-500/15 bg-rose-50 dark:text-rose-400 text-rose-700
+                                                {% endif %}"
+                                                id="status-badge-{{ claim.id }}">
+                                                <span class="status-dot
+                                                    {% if claim.status == 'Approved' %}bg-emerald-400
+                                                    {% elif claim.status == 'Pending' %}bg-amber-400
+                                                    {% elif claim.status == 'Rejected' %}bg-red-400
+                                                    {% else %}bg-rose-400{% endif %}"></span>
+                                                {{ claim.status }}
+                                            </span>
+                                        </div>
+
+                                        <!-- Summary -->
+                                        <p class="dark:text-surface-200/60 text-surface-700/70 text-xs leading-relaxed mb-2">{{ claim.ai_summary }}</p>
+
+                                        <!-- Meta row -->
+                                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] dark:text-surface-200/40 text-surface-700/40">
+                                            <span class="flex items-center gap-1">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                                {{ claim.sender_email }}
+                                            </span>
+                                            {% if claim.accident_date %}
+                                            <span class="flex items-center gap-1">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                {{ claim.accident_date }}
+                                            </span>
+                                            {% endif %}
+                                            {% if claim.damage_estimation %}
+                                            <span class="flex items-center gap-1 font-semibold dark:text-primary-400/70 text-primary-600">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                {{ "{:,.0f}".format(claim.damage_estimation) }}
+                                            </span>
+                                            {% endif %}
+                                            <span class="flex items-center gap-1">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                {{ claim.created_at }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Action buttons -->
+                                    <div class="flex sm:flex-col gap-2 flex-shrink-0" id="actions-{{ claim.id }}">
+                                        {% if claim.status != 'Approved' %}
+                                        <button onclick="updateStatus({{ claim.id }}, 'Approved')"
+                                            class="px-3 py-1.5 rounded-lg text-[11px] font-semibold dark:bg-emerald-500/10 bg-emerald-50 dark:text-emerald-400 text-emerald-700 hover:dark:bg-emerald-500/20 hover:bg-emerald-100 transition-colors">
+                                            ✓ Approve
+                                        </button>
+                                        {% endif %}
+                                        {% if claim.status != 'Rejected' %}
+                                        <button onclick="updateStatus({{ claim.id }}, 'Rejected')"
+                                            class="px-3 py-1.5 rounded-lg text-[11px] font-semibold dark:bg-red-500/10 bg-red-50 dark:text-red-400 text-red-700 hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors">
+                                            ✕ Reject
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 py-6 border-t dark:border-surface-800 border-surface-200">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-xs dark:text-surface-200/30 text-surface-700/30">
+                ClaimAI Dashboard · Powered by Google Gemini · Built with Flask & Tailwind CSS
+            </p>
+        </div>
+    </footer>
+
+    <script>
+    // -----------------------------------------------------------------------
+    // Example claims for quick fill
+    // -----------------------------------------------------------------------
+    const EXAMPLES = [
+        {
+            email: "jan.kowalski@gmail.com",
+            text: "My name is Jan Kowalski, on June 12th 2025 my car was hit by a truck near Warsaw on the A2 highway. The other driver ran a red light. My Toyota Corolla 2020 is heavily damaged - front bumper, hood, and radiator are destroyed. The repair shop estimated the cost at around 15000 PLN. I also suffered minor whiplash and had to visit a doctor. Please help me file a claim against the other driver's insurance. My phone number is +48 555 123 456."
+        },
+        {
+            email: "maria.nowak@outlook.com",
+            text: "I am writing to report a medical incident. My name is Maria Nowak. On March 3rd 2025, I underwent knee surgery at City Hospital in Krakow. During the procedure, the surgeon damaged a nerve in my left leg, causing partial numbness that persists to this day. I've had to undergo additional physical therapy sessions costing 8500 PLN so far, and the doctors say I may need another corrective surgery estimated at 45000 PLN. I believe this was medical malpractice and I want to seek compensation."
+        },
+        {
+            email: "piotr.wisniewski@wp.pl",
+            text: "Hello, I need help with a property damage claim. My name is Piotr Wisniewski. On January 15th 2025, a major pipe burst in the apartment above mine (ul. Marszalkowska 42, Warsaw) causing severe flooding in my flat. The water damaged my hardwood floors, kitchen cabinets, and destroyed several electronics including a TV and laptop. I've gotten estimates from contractors and the total damage is approximately 35000 PLN. My landlord's insurance is refusing to cover the full amount. I have photos and contractor quotes as evidence."
+        }
+    ];
+
+    function fillExample(index) {
+        const example = EXAMPLES[index];
+        document.getElementById('sender_email').value = example.email;
+        document.getElementById('raw_text').value = example.text;
+    }
+
+    // -----------------------------------------------------------------------
+    // Theme toggle
+    // -----------------------------------------------------------------------
+    const themeToggle = document.getElementById('theme-toggle');
+    themeToggle.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    });
+    // Restore theme
+    if (localStorage.getItem('theme') === 'light') {
+        document.documentElement.classList.remove('dark');
+    }
+
+    // -----------------------------------------------------------------------
+    // Toast notifications
+    // -----------------------------------------------------------------------
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+
+        const colors = {
+            success: 'from-emerald-600 to-emerald-500 shadow-emerald-500/20',
+            error: 'from-red-600 to-red-500 shadow-red-500/20',
+            info: 'from-primary-600 to-primary-500 shadow-primary-500/20',
+        };
+
+        toast.className = `px-5 py-3 rounded-xl bg-gradient-to-r ${colors[type]} text-white text-sm font-medium shadow-lg toast-enter flex items-center gap-2 max-w-sm`;
+
+        const icons = {
+            success: '✓',
+            error: '✕',
+            info: 'ℹ',
+        };
+
+        toast.innerHTML = `<span class="text-base">${icons[type]}</span> ${message}`;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.replace('toast-enter', 'toast-exit');
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
+    }
+
+    // -----------------------------------------------------------------------
+    // Submit claim form
+    // -----------------------------------------------------------------------
+    document.getElementById('claim-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const btn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('submit-text');
+        const spinner = document.getElementById('submit-spinner');
+
+        // Disable & show spinner
+        btn.disabled = true;
+        btnText.textContent = 'Processing...';
+        spinner.classList.remove('hidden');
+
+        const body = {
+            sender_email: document.getElementById('sender_email').value,
+            raw_text: document.getElementById('raw_text').value,
+        };
+
+        try {
+            const res = await fetch('/api/incoming-claim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Unknown error');
+            }
+
+            // Append new claim to table
+            appendClaim(data);
+            updateStats();
+            showToast('Claim processed successfully!', 'success');
+
+            // Reset form
+            e.target.reset();
+
+        } catch (err) {
+            showToast(`Error: ${err.message}`, 'error');
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = 'Process with AI';
+            spinner.classList.add('hidden');
+        }
+    });
+
+    // -----------------------------------------------------------------------
+    // Render a single claim row
+    // -----------------------------------------------------------------------
+    function getClaimTypeClasses(type) {
+        const map = {
+            'Car Accident': 'dark:bg-blue-500/15 bg-blue-50 dark:text-blue-400 text-blue-700',
+            'Medical': 'dark:bg-pink-500/15 bg-pink-50 dark:text-pink-400 text-pink-700',
+            'Property Damage': 'dark:bg-orange-500/15 bg-orange-50 dark:text-orange-400 text-orange-700',
+            'Workplace Injury': 'dark:bg-yellow-500/15 bg-yellow-50 dark:text-yellow-400 text-yellow-700',
+        };
+        return map[type] || 'dark:bg-surface-500/15 bg-surface-100 dark:text-surface-200/70 text-surface-700';
+    }
+
+    function getStatusClasses(status) {
+        const map = {
+            'Approved': { badge: 'dark:bg-emerald-500/15 bg-emerald-50 dark:text-emerald-400 text-emerald-700', dot: 'bg-emerald-400' },
+            'Pending': { badge: 'dark:bg-amber-500/15 bg-amber-50 dark:text-amber-400 text-amber-700', dot: 'bg-amber-400' },
+            'Rejected': { badge: 'dark:bg-red-500/15 bg-red-50 dark:text-red-400 text-red-700', dot: 'bg-red-400' },
+            'Requires Human Review': { badge: 'dark:bg-rose-500/15 bg-rose-50 dark:text-rose-400 text-rose-700', dot: 'bg-rose-400' },
+        };
+        return map[status] || map['Pending'];
+    }
+
+    function formatAmount(amount) {
+        if (!amount) return '';
+        return amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    }
+
+    function renderActions(id, status) {
+        let html = '';
+        if (status !== 'Approved') {
+            html += `<button onclick="updateStatus(${id}, 'Approved')" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold dark:bg-emerald-500/10 bg-emerald-50 dark:text-emerald-400 text-emerald-700 hover:dark:bg-emerald-500/20 hover:bg-emerald-100 transition-colors">✓ Approve</button>`;
+        }
+        if (status !== 'Rejected') {
+            html += `<button onclick="updateStatus(${id}, 'Rejected')" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold dark:bg-red-500/10 bg-red-50 dark:text-red-400 text-red-700 hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors">✕ Reject</button>`;
+        }
+        return html;
+    }
+
+    function appendClaim(claim) {
+        // Hide empty state
+        document.getElementById('empty-state').classList.add('hidden');
+
+        const list = document.getElementById('claims-list');
+        const typeClasses = getClaimTypeClasses(claim.claim_type);
+        const statusInfo = getStatusClasses(claim.status);
+
+        const div = document.createElement('div');
+        div.className = 'claim-row p-4 sm:p-5 hover:dark:bg-surface-800/30 hover:bg-surface-100/50 transition-colors';
+        div.dataset.claimId = claim.id;
+
+        div.innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                    <h3 class="font-semibold dark:text-white text-surface-900 text-sm">${claim.client_name || 'Unknown Client'}</h3>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${typeClasses}">
+                        ${claim.claim_type || 'Other'}
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusInfo.badge}" id="status-badge-${claim.id}">
+                        <span class="status-dot ${statusInfo.dot}"></span>
+                        ${claim.status}
+                    </span>
+                </div>
+                <p class="dark:text-surface-200/60 text-surface-700/70 text-xs leading-relaxed mb-2">${claim.ai_summary || ''}</p>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] dark:text-surface-200/40 text-surface-700/40">
+                    <span class="flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        ${claim.sender_email}
+                    </span>
+                    ${claim.accident_date ? `<span class="flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>${claim.accident_date}</span>` : ''}
+                    ${claim.damage_estimation ? `<span class="flex items-center gap-1 font-semibold dark:text-primary-400/70 text-primary-600"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>${formatAmount(claim.damage_estimation)}</span>` : ''}
+                    <span class="flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        ${claim.created_at}
+                    </span>
+                </div>
+            </div>
+            <div class="flex sm:flex-col gap-2 flex-shrink-0" id="actions-${claim.id}">
+                ${renderActions(claim.id, claim.status)}
+            </div>
+        </div>`;
+
+        list.prepend(div);
+    }
+
+    // -----------------------------------------------------------------------
+    // Update claim status
+    // -----------------------------------------------------------------------
+    async function updateStatus(id, status) {
+        try {
+            const res = await fetch(`/api/claim/${id}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            // Update badge
+            const badge = document.getElementById(`status-badge-${id}`);
+            const statusInfo = getStatusClasses(status);
+            if (badge) {
+                badge.className = `inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusInfo.badge}`;
+                badge.innerHTML = `<span class="status-dot ${statusInfo.dot}"></span> ${status}`;
+            }
+
+            // Update action buttons
+            const actions = document.getElementById(`actions-${id}`);
+            if (actions) {
+                actions.innerHTML = renderActions(id, status);
+            }
+
+            updateStats();
+            showToast(`Claim #${id} → ${status}`, 'success');
+
+        } catch (err) {
+            showToast(`Error: ${err.message}`, 'error');
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Refresh claims list
+    // -----------------------------------------------------------------------
+    async function refreshClaims() {
+        const btn = document.getElementById('refresh-btn');
+        btn.classList.add('animate-spin');
+
+        try {
+            const res = await fetch('/api/claims');
+            const claims = await res.json();
+
+            const list = document.getElementById('claims-list');
+            list.innerHTML = '';
+
+            if (claims.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+                claims.forEach(claim => appendClaim(claim));
+            }
+
+            updateStatsFromData(claims);
+            showToast('Claims refreshed', 'info');
+
+        } catch (err) {
+            showToast(`Refresh failed: ${err.message}`, 'error');
+        } finally {
+            btn.classList.remove('animate-spin');
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Update stats
+    // -----------------------------------------------------------------------
+    async function updateStats() {
+        try {
+            const res = await fetch('/api/claims');
+            const claims = await res.json();
+            updateStatsFromData(claims);
+        } catch (e) { /* silent */ }
+    }
+
+    function updateStatsFromData(claims) {
+        document.getElementById('stat-total').textContent = claims.length;
+        document.getElementById('stat-pending').textContent = claims.filter(c => c.status === 'Pending').length;
+        document.getElementById('stat-approved').textContent = claims.filter(c => c.status === 'Approved').length;
+        document.getElementById('stat-review').textContent = claims.filter(c => c.status === 'Requires Human Review').length;
+    }
+    </script>
+</body>
+</html>
