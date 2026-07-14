@@ -43,33 +43,58 @@ RULES:
 Always respond with valid JSON matching the required schema."""
 
 
+# Models to try in order of preference
+GEMINI_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash-lite",
+]
+
+
 def parse_claim_with_gemini(raw_text: str) -> ClaimAnalysis:
     """
     Send raw claim text to Gemini and get structured output.
+
+    Tries multiple models in order if one is unavailable.
 
     Args:
         raw_text: The raw text of the insurance claim.
 
     Returns:
         ClaimAnalysis object with extracted fields.
+
+    Raises:
+        Exception: If all models fail.
     """
     api_key = os.environ.get("GEMINI_API_KEY", "")
-
     client = genai.Client(api_key=api_key)
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=raw_text,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            response_schema=ClaimAnalysis,
-            temperature=0.2,
-        ),
-    )
+    last_error = None
 
-    result = json.loads(response.text)
-    return ClaimAnalysis(**result)
+    for model_name in GEMINI_MODELS:
+        try:
+            print(f"[AI] Trying model: {model_name}")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=raw_text,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    response_mime_type="application/json",
+                    response_schema=ClaimAnalysis,
+                    temperature=0.2,
+                ),
+            )
+            result = json.loads(response.text)
+            print(f"[AI] Success with model: {model_name}")
+            return ClaimAnalysis(**result)
+
+        except Exception as e:
+            last_error = e
+            print(f"[AI] Model {model_name} failed: {e}")
+            continue
+
+    raise last_error or RuntimeError("All Gemini models failed")
 
 
 # ---------------------------------------------------------------------------
