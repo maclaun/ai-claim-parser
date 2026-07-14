@@ -1,0 +1,196 @@
+"""
+AI Claim Parser module.
+
+Uses Google Gemini (gemini-2.5-flash) with structured JSON output
+to extract claim details from raw text.
+
+Falls back to a mock parser when GEMINI_API_KEY is not available,
+so the application works without API access.
+"""
+
+import json
+import os
+import random
+import re
+
+from google import genai
+from google.genai import types
+
+from models import ClaimAnalysis
+
+# ---------------------------------------------------------------------------
+# System prompt that guides Gemini on how to evaluate claims
+# ---------------------------------------------------------------------------
+SYSTEM_PROMPT = """You are an expert insurance claim analyst working for a legal compensation company. 
+Your job is to analyze incoming claim emails and extract structured information.
+
+RULES:
+1. Extract the client's full name. If not found, set client_name to null.
+2. Extract the accident/incident date in YYYY-MM-DD format if possible. If the exact date is unclear, use whatever date info is available. If none, set to null.
+3. Classify the claim into one of these types:
+   - "Car Accident" — vehicle collisions, traffic incidents
+   - "Medical" — medical malpractice, hospital injuries
+   - "Property Damage" — home, building, or property damage
+   - "Workplace Injury" — injuries at work
+   - "Other" — anything that doesn't fit above
+4. Extract the estimated damage amount as a plain number (no currency symbols). If not mentioned, set to null.
+5. Write a brief 2-3 sentence summary of the claim.
+6. Suggest a status:
+   - "Pending" — if the claim has sufficient data and damage < 50000
+   - "Requires Human Review" — if key information is missing, damage >= 50000, or the claim seems unusual/complex
+   - "Approved" — only if the claim is very straightforward with complete information and low damage
+
+Always respond with valid JSON matching the required schema."""
+
+
+def parse_claim_with_gemini(raw_text: str) -> ClaimAnalysis:
+    """
+    Send raw claim text to Gemini and get structured output.
+
+    Args:
+        raw_text: The raw text of the insurance claim.
+
+    Returns:
+        ClaimAnalysis object with extracted fields.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+
+    client = genai.Client(api_key=api_key)
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=raw_text,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            response_mime_type="application/json",
+            response_schema=ClaimAnalysis,
+            temperature=0.2,
+        ),
+    )
+
+    result = json.loads(response.text)
+    return ClaimAnalysis(**result)
+
+
+# ---------------------------------------------------------------------------
+# Mock parser — used when API key is not set
+# ---------------------------------------------------------------------------
+
+def _extract_name_mock(text: str) -> str | None:
+    """Try to extract a name from common patterns."""
+    patterns = [
+        r"(?:my name is|i am|i'm|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)",
+        r"(?:name|client|claimant)[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip().title()
+    return None
+
+
+def _extract_amount_mock(text: str) -> float | None:
+    """Try to extract a monetary amount from text."""
+    patterns = [
+        r"(\d[\d\s,.]*)\s*(?:PLN|USD|EUR|GBP|zł|\$|€|£)",
+        r"(?:cost|damage|amount|worth|estimate)[^\d]*(\d[\d\s,.]*)",
+        r"(?:around|about|approximately|roughly)\s*(\d[\d\s,.]*)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            num_str = match.group(1).replace(" ", "").replace(",", "")
+            try:
+                return float(num_str)
+            except ValueError:
+                continue
+    return None
+
+
+def _detect_claim_type_mock(text: str) -> str:
+    """Simple keyword-based claim type detection."""
+    text_lower = text.lower()
+    if any(w in text_lower for w in ["car", "vehicle", "truck", "collision", "traffic", "driving"]):
+        return "Car Accident"
+    if any(w in text_lower for w in ["hospital", "doctor", "medical", "surgery", "treatment"]):
+        return "Medical"
+    if any(w in text_lower for w in ["house", "property", "building", "roof", "flood", "fire"]):
+        return "Property Damage"
+    if any(w in text_lower for w in ["work", "workplace", "factory", "office injury"]):
+        return "Workplace Injury"
+    return "Other"
+
+
+def parse_claim_mock(raw_text: str) -> ClaimAnalysis:
+    """
+    Mock parser that extracts basic info using regex patterns.
+    Used when GEMINI_API_KEY is not available.
+
+    Returns:
+        ClaimAnalysis with [MOCK] prefix in summary.
+    """
+    name = _extract_name_mock(raw_text)
+    amount = _extract_amount_mock(raw_text)
+    claim_type = _detect_claim_type_mock(raw_text)
+
+    # Simple date extraction
+    date_match = re.search(
+        r"(\w+\s+\d{1,2}(?:st|nd|rd|th)?,?\s*\d{4}|\d{1,2}[./]\d{1,2}[./]\d{2,4})",
+        raw_text,
+    )
+    accident_date = date_match.group(1) if date_match else None
+
+    # Determine status
+    missing_fields = sum([name is None, accident_date is None, amount is None])
+    if missing_fields >= 2:
+        status = "Requires Human Review"
+    elif amount and amount >= 50000:
+        status = "Requires Human Review"
+    else:
+        status = "Pending"
+
+    summary = f"[MOCK] Claim from {name or 'unknown client'} regarding {claim_type.lower()}."
+    if amount:
+        summary += f" Estimated damage: {amount:,.0f}."
+    if missing_fields > 0:
+        summary += f" Note: {missing_fields} field(s) could not be extracted automatically."
+
+    return ClaimAnalysis(
+        client_name=name,
+        accident_date=accident_date,
+        claim_type=claim_type,
+        damage_estimation=amount,
+        ai_summary=summary,
+        suggested_status=status,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+def parse_claim(raw_text: str) -> ClaimAnalysis:
+    """
+    Parse a raw claim text using Gemini AI or mock fallback.
+
+    Uses Gemini if GEMINI_API_KEY is set in environment,
+    otherwise falls back to the mock parser.
+
+    Args:
+        raw_text: The raw text of the insurance claim email.
+
+    Returns:
+        ClaimAnalysis with structured claim data.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+
+    if api_key:
+        try:
+            return parse_claim_with_gemini(raw_text)
+        except Exception as e:
+            print(f"[WARNING] Gemini API call failed: {e}")
+            print("[WARNING] Falling back to mock parser.")
+            return parse_claim_mock(raw_text)
+    else:
+        print("[INFO] No GEMINI_API_KEY found. Using mock parser.")
+        return parse_claim_mock(raw_text)
