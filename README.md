@@ -55,11 +55,19 @@ python app.py
 
 Open http://localhost:5000 in your browser.
 
-## n8n Integration (Optional)
+## n8n & Telegram Integration (Optional)
 
-This repository includes a pre-configured n8n workflow file: [n8n-workflow.json](file:///c:/Users/maclaun/Desktop/auton8n/ai-claim-parser/n8n-workflow.json).
+This project contains a pre-configured n8n workflow file: [n8n-workflow.json](file:///c:/Users/maclaun/Desktop/auton8n/ai-claim-parser/n8n-workflow.json). 
 
-To set up the n8n automation locally:
+The workflow listens for new claims, parses them with Flask AI, and notifies a human reviewer in Telegram if the claim needs review. It also notifies Telegram whenever you approve or reject a claim on the dashboard.
+
+### 1. Setup Your Telegram Bot
+1. Open Telegram and search for [@BotFather](https://t.me/BotFather).
+2. Start the chat and send the command `/newbot`. Follow the steps to name your bot and get the **API Token** (looks like `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
+3. Search for [@userinfobot](https://t.me/userinfobot) (or any similar ID bot), start it, and copy your **ID** (a number like `987654321`). This is your `Chat ID`.
+4. Open a chat with your newly created bot and click **Start** (important, or the bot won't be allowed to message you!).
+
+### 2. Configure n8n
 1. **Start the n8n server**: 
    - Double-click `start-n8n.bat` (Windows) or run `n8n start` manually.
 2. **Access n8n dashboard**:
@@ -68,10 +76,22 @@ To set up the n8n automation locally:
    - Click "Build workflow".
    - Open the menu in the top-right corner (three dots) and select **Import from File**.
    - Choose the `n8n-workflow.json` file from the root of this project.
-4. **Test the integration**:
-   - Make sure your Flask server is running on port 5000.
-   - Click the orange **"Execute workflow"** button in n8n.
-   - Send a test payload to your n8n webhook URL to see the data parsed by Llama 3.1 8B in real time!
+4. **Link your Telegram Credentials**:
+   - Double-click the **Telegram: Send Alert** node.
+   - Under *Credential to connect with*, click *Select Credential* -> *Create New Credential*.
+   - Paste your **API Token** from BotFather and save.
+   - In the **Chat ID** field, replace `YOUR_TELEGRAM_CHAT_ID` with your actual ID from `@userinfobot`.
+   - Do the exact same for the **Telegram: Status Update** node.
+
+### 3. Connect Flask back-notifications (Optional)
+If you want the dashboard "Approve/Reject" buttons to trigger Telegram messages:
+1. In n8n, double-click the **Webhook (Status Update)** node.
+2. Copy the **Test URL** (e.g. `http://localhost:5678/webhook-test/status-update-trigger`).
+3. Open your local `.env` file and paste it there:
+   ```env
+   N8N_STATUS_WEBHOOK_URL=http://localhost:5678/webhook-test/status-update-trigger
+   ```
+4. Restart your Flask server (`run.bat`). Now, clicking Approve or Reject on the UI will notify you on Telegram!
 
 ## API Endpoints
 

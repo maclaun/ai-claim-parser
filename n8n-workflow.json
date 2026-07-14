@@ -9,8 +9,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        -220,
+        -100
       ],
       "id": "webhook-trigger",
       "name": "Webhook (Incoming Email)"
@@ -27,8 +27,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        220,
-        0
+        0,
+        -100
       ],
       "id": "http-flask-backend",
       "name": "Send to Flask AI Parser"
@@ -58,24 +58,28 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        480,
-        0
+        240,
+        -100
       ],
       "id": "check-status",
       "name": "If Needs Review?"
     },
     {
       "parameters": {
-        "options": {}
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=⚠️ *Attention Required!* ⚠️\n\nA new insurance claim requires human review!\n\n👤 *Client:* {{ $json.client_name || 'Unknown' }}\n📧 *Email:* {{ $json.sender_email }}\n💰 *Estimated Damage:* {{ $json.damage_estimation || 'Not specified' }}\n📝 *Summary:* {{ $json.ai_summary }}",
+        "additionalFields": {
+          "parseMode": "Markdown"
+        }
       },
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
       "position": [
-        740,
-        -100
+        520,
+        -200
       ],
-      "id": "alert-manager",
-      "name": "Alert Manager (High Priority)"
+      "id": "telegram-alert",
+      "name": "Telegram: Send Alert"
     },
     {
       "parameters": {
@@ -84,11 +88,43 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        740,
-        100
+        520,
+        0
       ],
       "id": "auto-process",
       "name": "Add to Google Sheets / CRM"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "status-update-trigger",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        220
+      ],
+      "id": "status-webhook",
+      "name": "Webhook (Status Update)"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🔔 *Claim Status Updated* 🔔\n\nClaim *#{{ $json.body.id }}* has been processed!\n\n👤 *Client:* {{ $json.body.client_name || 'Unknown' }}\n📋 *Claim Type:* {{ $json.body.claim_type }}\n🏷️ *New Status:* *{{ $json.body.status }}*",
+        "additionalFields": {
+          "parseMode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        120,
+        220
+      ],
+      "id": "telegram-status-update",
+      "name": "Telegram: Status Update"
     }
   ],
   "connections": {
@@ -118,7 +154,7 @@
       "main": [
         [
           {
-            "node": "Alert Manager (High Priority)",
+            "node": "Telegram: Send Alert",
             "type": "main",
             "index": 0
           }
@@ -126,6 +162,17 @@
         [
           {
             "node": "Add to Google Sheets / CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (Status Update)": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Status Update",
             "type": "main",
             "index": 0
           }

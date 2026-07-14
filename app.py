@@ -122,6 +122,16 @@ def api_update_status(claim_id: int):
     if updated is None:
         return jsonify({"error": "Claim not found"}), 404
 
+    # Notify n8n workflow about status change (optional integration)
+    n8n_url = os.environ.get("N8N_STATUS_WEBHOOK_URL", "").strip()
+    if n8n_url:
+        try:
+            import requests
+            requests.post(n8n_url, json=updated, timeout=5)
+            print(f"[Webhook] Notified n8n about status change for claim #{claim_id}")
+        except Exception as e:
+            print(f"[Warning] Failed to notify n8n: {e}")
+
     return jsonify(updated)
 
 
