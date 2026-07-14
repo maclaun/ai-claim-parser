@@ -10,7 +10,7 @@
       "typeVersion": 2,
       "position": [
         -220,
-        -100
+        -240
       ],
       "id": "webhook-trigger",
       "name": "Webhook (Incoming Email)"
@@ -28,10 +28,25 @@
       "typeVersion": 4.2,
       "position": [
         0,
-        -100
+        -240
       ],
       "id": "http-flask-backend",
       "name": "Send to Flask AI Parser"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-claim-trigger",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "new-claim-webhook",
+      "name": "Webhook (New Claim from Flask)"
     },
     {
       "parameters": {
@@ -43,7 +58,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.status }}",
+              "leftValue": "={{ $json.status || $json.body.status }}",
               "rightValue": "Requires Human Review",
               "operator": {
                 "type": "string",
@@ -58,7 +73,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        240,
+        300,
         -100
       ],
       "id": "check-status",
@@ -70,13 +85,13 @@
         "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\", \"parse_mode\": \"Markdown\", \"text\": \"⚠️ *Attention Required!* ⚠️\\n\\nA new insurance claim requires human review!\\n\\n👤 *Client:* {{ $json.client_name || 'Unknown' }}\\n📧 *Email:* {{ $json.sender_email }}\\n💰 *Estimated Damage:* {{ $json.damage_estimation || 'Not specified' }}\\n📝 *Summary:* {{ $json.ai_summary }}\"}",
+        "jsonBody": "={\"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\", \"parse_mode\": \"Markdown\", \"text\": \"⚠️ *Attention Required!* ⚠️\\n\\nA new insurance claim requires human review!\\n\\n👤 *Client:* {{ $json.client_name || $json.body.client_name || 'Unknown' }}\\n📧 *Email:* {{ $json.sender_email || $json.body.sender_email }}\\n💰 *Estimated Damage:* {{ $json.damage_estimation || $json.body.damage_estimation || 'Not specified' }}\\n📝 *Summary:* {{ $json.ai_summary || $json.body.ai_summary }}\"}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        520,
+        580,
         -200
       ],
       "id": "telegram-alert",
@@ -89,7 +104,7 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        520,
+        580,
         0
       ],
       "id": "auto-process",
@@ -142,6 +157,17 @@
       ]
     },
     "Send to Flask AI Parser": {
+      "main": [
+        [
+          {
+            "node": "If Needs Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (New Claim from Flask)": {
       "main": [
         [
           {

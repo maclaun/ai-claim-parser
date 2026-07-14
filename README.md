@@ -83,15 +83,16 @@ The workflow listens for new claims, parses them with Flask AI, and notifies a h
 5. **No Credentials Needed**:
    - The workflow uses the environment variables you defined in `start-n8n.bat`. The Telegram HTTP nodes automatically read them via `{{ $env.TELEGRAM_BOT_TOKEN }}` and `{{ $env.TELEGRAM_CHAT_ID }}`. No manual setup in n8n is required!
 
-### 3. Connect Flask back-notifications (Optional)
-If you want the dashboard "Approve/Reject" buttons to trigger Telegram messages:
-1. In n8n, double-click the **Webhook (Status Update)** node.
-2. Copy the **Test URL** (e.g. `http://localhost:5678/webhook-test/status-update-trigger`).
-3. Open your local `.env` file and paste it there:
-   ```env
-   N8N_STATUS_WEBHOOK_URL=http://localhost:5678/webhook-test/status-update-trigger
-   ```
-4. Restart your Flask server (`run.bat`). Now, clicking Approve or Reject on the UI will notify you on Telegram!
+### 3. Connect Flask Webhook Notifications (Optional)
+If you want the dashboard simulation form and status update buttons to trigger Telegram alerts:
+1. **Status Changes** (Approve/Reject):
+   - In n8n, double-click the **Webhook (Status Update)** node and copy the **Test URL**.
+   - Paste it in `.env` as `N8N_STATUS_WEBHOOK_URL=http://127.0.0.1:5678/webhook-test/status-update-trigger`.
+2. **New Incoming Claims** (Form/API):
+   - In n8n, double-click the **Webhook (New Claim from Flask)** node and copy the **Test URL**.
+   - Paste it in `.env` as `N8N_NEW_CLAIM_WEBHOOK_URL=http://127.0.0.1:5678/webhook-test/new-claim-trigger`.
+3. **Restart the server**:
+   - Restart your Flask server (`run.bat` or `start-all.bat`) so it loads the updated `.env` configuration. Now, both submitting new claims and approving them will trigger live Telegram alerts!
 
 ## API Endpoints
 

@@ -93,6 +93,16 @@ def api_incoming_claim():
 
     saved_claim = insert_claim(claim_data)
 
+    # Notify n8n workflow about the new processed claim (optional integration)
+    n8n_new_claim_url = os.environ.get("N8N_NEW_CLAIM_WEBHOOK_URL", "").strip()
+    if n8n_new_claim_url:
+        try:
+            import requests
+            requests.post(n8n_new_claim_url, json=saved_claim, timeout=5)
+            print(f"[Webhook] Notified n8n about new claim #{saved_claim['id']}")
+        except Exception as e:
+            print(f"[Warning] Failed to notify n8n about new claim: {e}")
+
     return jsonify(saved_claim), 201
 
 
