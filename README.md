@@ -1,12 +1,12 @@
 # AI Insurance Claim Parser & Lead Automation Dashboard
 
-An AI-powered microservice that simulates how an insurance/compensation company processes incoming legal claims from emails. Uses Google Gemini AI to automatically extract structured data from messy, unstructured claim emails.
+An AI-powered microservice that simulates how an insurance/compensation company processes incoming legal claims from emails. Uses Groq (Llama 3.1 8B) as the primary engine and Google Gemini as a secondary fallback to automatically extract structured data from messy, unstructured claim emails.
 
 ## Features
 
-- **AI-Powered Parsing**: Uses Google Gemini (gemini-2.5-flash) with structured JSON output to extract client name, accident date, claim type, damage estimation, and generate summaries
+- **AI-Powered Parsing**: Uses Llama 3.1 8B (via Groq) or Google Gemini with structured JSON output to extract client name, accident date, claim type, damage estimation, and generate summaries
 - **Smart Status Assignment**: AI evaluates claim completeness and suggests appropriate status (Pending, Approved, or Requires Human Review)
-- **Mock Fallback**: Works without an API key using regex-based mock parser — perfect for development and demos
+- **Multi-Provider Fallback**: Automatically tries Groq first, cascades through multiple Gemini models if Groq fails, and drops back to a regex-based mock parser if no API keys are configured — perfect for offline development
 - **Responsive Dashboard**: Modern dark/light theme with glassmorphism design, built with Tailwind CSS
 - **Real-time Updates**: Claims appear instantly without page reload via Fetch API
 - **Claim Management**: Approve or reject claims directly from the dashboard
@@ -17,7 +17,7 @@ An AI-powered microservice that simulates how an insurance/compensation company 
 |-------|-----------|
 | Backend | Python 3.12 / Flask |
 | Database | SQLite (WAL mode) |
-| AI | Google GenAI SDK (Gemini 2.5 Flash) |
+| AI | Groq SDK (Llama 3.1 8B) / Google GenAI SDK (Gemini) |
 | Validation | Pydantic v2 |
 | Frontend | Tailwind CSS v3 (CDN) + Vanilla JS |
 
@@ -42,10 +42,10 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
+# Edit .env and add your GROQ_API_KEY and/or GEMINI_API_KEY
 ```
 
-> Without an API key, the app runs in **mock mode** with simulated AI responses (marked with `[MOCK]` prefix).
+> Without any API keys, the app runs in **mock mode** with simulated AI responses (marked with `[MOCK]` prefix).
 
 ### 3. Run
 
@@ -98,7 +98,7 @@ curl -X POST http://localhost:5000/api/incoming-claim \
 ```
 ai-claim-parser/
 ├── app.py              # Flask server and API routes
-├── ai_parser.py        # Gemini AI integration + mock fallback
+├── ai_parser.py        # AI parser module (Groq / Gemini / Mock fallback)
 ├── database.py         # SQLite schema and CRUD operations
 ├── models.py           # Pydantic schemas for structured output
 ├── requirements.txt    # Python dependencies
