@@ -1,25 +1,25 @@
 """
 AI Claim Parser module.
 
-Uses Google Gemini (gemini-2.5-flash) with structured JSON output
-to extract claim details from raw text.
+Supports multiple AI providers with automatic fallback:
+  1. Groq (Llama 3.1 8B) — primary, fast and reliable
+  2. Google Gemini — secondary fallback
+  3. Mock parser — regex-based, works without any API key
 
-Falls back to a mock parser when GEMINI_API_KEY is not available,
-so the application works without API access.
+The active provider is determined by environment variables:
+  - GROQ_API_KEY → uses Groq
+  - GEMINI_API_KEY → uses Gemini (if Groq unavailable)
+  - Neither → uses mock parser
 """
 
 import json
 import os
-import random
 import re
-
-from google import genai
-from google.genai import types
 
 from models import ClaimAnalysis
 
 # ---------------------------------------------------------------------------
-# System prompt that guides Gemini on how to evaluate claims
+# System prompt shared across all AI providers
 # ---------------------------------------------------------------------------
 SYSTEM_PROMPT = """You are an expert insurance claim analyst working for a legal compensation company. 
 Your job is to analyze incoming claim emails and extract structured information.
@@ -40,10 +40,60 @@ RULES:
    - "Requires Human Review" — if key information is missing, damage >= 50000, or the claim seems unusual/complex
    - "Approved" — only if the claim is very straightforward with complete information and low damage
 
-Always respond with valid JSON matching the required schema."""
+You MUST respond ONLY with valid JSON matching this exact schema:
+{
+  "client_name": "string or null",
+  "accident_date": "string or null",
+  "claim_type": "string",
+  "damage_estimation": number or null,
+  "ai_summary": "string",
+  "suggested_status": "string"
+}"""
 
 
-# Models to try in order of preference
+# ---------------------------------------------------------------------------
+# Groq provider (primary) — Llama 3.1 8B via Groq
+# ---------------------------------------------------------------------------
+
+GROQ_MODEL = "llama-3.1-8b-instant"
+
+
+def parse_claim_with_groq(raw_text: str) -> ClaimAnalysis:
+    """
+    Parse claim using Groq API (Llama 3.1 8B Instant).
+
+    Args:
+        raw_text: The raw text of the insurance claim.
+
+    Returns:
+        ClaimAnalysis object with extracted fields.
+    """
+    from groq import Groq
+
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    client = Groq(api_key=api_key)
+
+    print(f"[AI] Calling Groq ({GROQ_MODEL})...")
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": raw_text},
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.2,
+        max_tokens=1024,
+    )
+
+    result = json.loads(response.choices[0].message.content)
+    print(f"[AI] Groq ({GROQ_MODEL}) success!")
+    return ClaimAnalysis(**result)
+
+
+# ---------------------------------------------------------------------------
+# Gemini provider (secondary fallback)
+# ---------------------------------------------------------------------------
+
 GEMINI_MODELS = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
@@ -54,7 +104,7 @@ GEMINI_MODELS = [
 
 def parse_claim_with_gemini(raw_text: str) -> ClaimAnalysis:
     """
-    Send raw claim text to Gemini and get structured output.
+    Parse claim using Google Gemini with structured output.
 
     Tries multiple models in order if one is unavailable.
 
@@ -65,8 +115,11 @@ def parse_claim_with_gemini(raw_text: str) -> ClaimAnalysis:
         ClaimAnalysis object with extracted fields.
 
     Raises:
-        Exception: If all models fail.
+        Exception: If all Gemini models fail.
     """
+    from google import genai
+    from google.genai import types
+
     api_key = os.environ.get("GEMINI_API_KEY", "")
     client = genai.Client(api_key=api_key)
 
@@ -74,7 +127,7 @@ def parse_claim_with_gemini(raw_text: str) -> ClaimAnalysis:
 
     for model_name in GEMINI_MODELS:
         try:
-            print(f"[AI] Trying model: {model_name}")
+            print(f"[AI] Trying Gemini model: {model_name}")
             response = client.models.generate_content(
                 model=model_name,
                 contents=raw_text,
@@ -86,19 +139,19 @@ def parse_claim_with_gemini(raw_text: str) -> ClaimAnalysis:
                 ),
             )
             result = json.loads(response.text)
-            print(f"[AI] Success with model: {model_name}")
+            print(f"[AI] Gemini ({model_name}) success!")
             return ClaimAnalysis(**result)
 
         except Exception as e:
             last_error = e
-            print(f"[AI] Model {model_name} failed: {e}")
+            print(f"[AI] Gemini {model_name} failed: {e}")
             continue
 
     raise last_error or RuntimeError("All Gemini models failed")
 
 
 # ---------------------------------------------------------------------------
-# Mock parser — used when API key is not set
+# Mock parser — used when no API keys are available
 # ---------------------------------------------------------------------------
 
 def _extract_name_mock(text: str) -> str | None:
@@ -149,7 +202,7 @@ def _detect_claim_type_mock(text: str) -> str:
 def parse_claim_mock(raw_text: str) -> ClaimAnalysis:
     """
     Mock parser that extracts basic info using regex patterns.
-    Used when GEMINI_API_KEY is not available.
+    Used when no API keys are available.
 
     Returns:
         ClaimAnalysis with [MOCK] prefix in summary.
@@ -191,15 +244,23 @@ def parse_claim_mock(raw_text: str) -> ClaimAnalysis:
 
 
 # ---------------------------------------------------------------------------
-# Main entry point
+# Main entry point — cascading provider fallback
 # ---------------------------------------------------------------------------
+
+def get_active_provider() -> str:
+    """Return the name of the currently active AI provider."""
+    if os.environ.get("GROQ_API_KEY", "").strip():
+        return "groq"
+    if os.environ.get("GEMINI_API_KEY", "").strip():
+        return "gemini"
+    return "mock"
+
 
 def parse_claim(raw_text: str) -> ClaimAnalysis:
     """
-    Parse a raw claim text using Gemini AI or mock fallback.
+    Parse a raw claim text using the best available AI provider.
 
-    Uses Gemini if GEMINI_API_KEY is set in environment,
-    otherwise falls back to the mock parser.
+    Priority: Groq (Llama 3.1 8B) -> Gemini -> Mock
 
     Args:
         raw_text: The raw text of the insurance claim email.
@@ -207,15 +268,27 @@ def parse_claim(raw_text: str) -> ClaimAnalysis:
     Returns:
         ClaimAnalysis with structured claim data.
     """
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+    gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
 
-    if api_key:
+    # 1. Try Groq (primary)
+    if groq_key:
+        try:
+            return parse_claim_with_groq(raw_text)
+        except Exception as e:
+            print(f"[WARNING] Groq API failed: {e}")
+
+    # 2. Try Gemini (secondary)
+    if gemini_key:
         try:
             return parse_claim_with_gemini(raw_text)
         except Exception as e:
-            print(f"[WARNING] Gemini API call failed: {e}")
-            print("[WARNING] Falling back to mock parser.")
-            return parse_claim_mock(raw_text)
+            print(f"[WARNING] Gemini API failed: {e}")
+
+    # 3. Fallback to mock
+    if not groq_key and not gemini_key:
+        print("[INFO] No API keys found (GROQ_API_KEY / GEMINI_API_KEY). Using mock parser.")
     else:
-        print("[INFO] No GEMINI_API_KEY found. Using mock parser.")
-        return parse_claim_mock(raw_text)
+        print("[WARNING] All AI providers failed. Falling back to mock parser.")
+
+    return parse_claim_mock(raw_text)

@@ -133,13 +133,15 @@
                 <div class="flex items-center gap-4">
                     <!-- API Status -->
                     <div id="api-status" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
-                        {% if has_api_key %}
+                        {% if provider == 'groq' %}
                             dark:bg-emerald-500/10 bg-emerald-50 dark:text-emerald-400 text-emerald-700
+                        {% elif provider == 'gemini' %}
+                            dark:bg-blue-500/10 bg-blue-50 dark:text-blue-400 text-blue-700
                         {% else %}
                             dark:bg-amber-500/10 bg-amber-50 dark:text-amber-400 text-amber-700
                         {% endif %}">
-                        <span class="status-dot {% if has_api_key %}bg-emerald-400{% else %}bg-amber-400{% endif %}"></span>
-                        {% if has_api_key %}Gemini AI Active{% else %}Mock Mode{% endif %}
+                        <span class="status-dot {% if provider == 'groq' %}bg-emerald-400{% elif provider == 'gemini' %}bg-blue-400{% else %}bg-amber-400{% endif %}"></span>
+                        {% if provider == 'groq' %}Groq Llama 8B{% elif provider == 'gemini' %}Gemini AI{% else %}Mock Mode{% endif %}
                     </div>
 
                     <!-- Theme Toggle -->

@@ -10,7 +10,7 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
-from ai_parser import parse_claim
+from ai_parser import get_active_provider, parse_claim
 from database import get_all_claims, init_db, insert_claim, update_claim_status
 
 # Load environment variables from .env file (if it exists)
@@ -35,8 +35,8 @@ with app.app_context():
 def index():
     """Serve the main dashboard page."""
     claims = get_all_claims()
-    has_api_key = bool(os.environ.get("GEMINI_API_KEY", "").strip())
-    return render_template("index.html", claims=claims, has_api_key=has_api_key)
+    provider = get_active_provider()
+    return render_template("index.html", claims=claims, provider=provider)
 
 
 @app.route("/api/claims", methods=["GET"])
