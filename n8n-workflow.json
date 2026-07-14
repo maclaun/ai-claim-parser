@@ -66,14 +66,15 @@
     },
     {
       "parameters": {
-        "chatId": "YOUR_TELEGRAM_CHAT_ID",
-        "text": "=⚠️ *Attention Required!* ⚠️\n\nA new insurance claim requires human review!\n\n👤 *Client:* {{ $json.client_name || 'Unknown' }}\n📧 *Email:* {{ $json.sender_email }}\n💰 *Estimated Damage:* {{ $json.damage_estimation || 'Not specified' }}\n📝 *Summary:* {{ $json.ai_summary }}",
-        "additionalFields": {
-          "parseMode": "Markdown"
-        }
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\", \"parse_mode\": \"Markdown\", \"text\": \"⚠️ *Attention Required!* ⚠️\\n\\nA new insurance claim requires human review!\\n\\n👤 *Client:* {{ $json.client_name || 'Unknown' }}\\n📧 *Email:* {{ $json.sender_email }}\\n💰 *Estimated Damage:* {{ $json.damage_estimation || 'Not specified' }}\\n📝 *Summary:* {{ $json.ai_summary }}\"}",
+        "options": {}
       },
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         520,
         -200
@@ -111,14 +112,15 @@
     },
     {
       "parameters": {
-        "chatId": "YOUR_TELEGRAM_CHAT_ID",
-        "text": "=🔔 *Claim Status Updated* 🔔\n\nClaim *#{{ $json.body.id }}* has been processed!\n\n👤 *Client:* {{ $json.body.client_name || 'Unknown' }}\n📋 *Claim Type:* {{ $json.body.claim_type }}\n🏷️ *New Status:* *{{ $json.body.status }}*",
-        "additionalFields": {
-          "parseMode": "Markdown"
-        }
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\", \"parse_mode\": \"Markdown\", \"text\": \"🔔 *Claim Status Updated* 🔔\\n\\nClaim *#{{ $json.body.id }}* has been processed!\\n\\n👤 *Client:* {{ $json.body.client_name || 'Unknown' }}\\n📋 *Claim Type:* {{ $json.body.claim_type }}\\n🏷️ *New Status:* *{{ $json.body.status }}*\"}",
+        "options": {}
       },
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         120,
         220

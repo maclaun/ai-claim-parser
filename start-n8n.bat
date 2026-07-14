@@ -5,6 +5,13 @@ echo Starting n8n Automation Server...
 echo ===================================================
 echo.
 
+:: =====================================================
+:: TELEGRAM BOT CONFIGURATION
+:: Replace these with your actual credentials:
+set "TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN"
+set "TELEGRAM_CHAT_ID=YOUR_TELEGRAM_CHAT_ID"
+:: =====================================================
+
 :: Add Node.js and global npm to PATH
 set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PATH%"
 

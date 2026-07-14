@@ -67,21 +67,24 @@ The workflow listens for new claims, parses them with Flask AI, and notifies a h
 3. Search for [@userinfobot](https://t.me/userinfobot) (or any similar ID bot), start it, and copy your **ID** (a number like `987654321`). This is your `Chat ID`.
 4. Open a chat with your newly created bot and click **Start** (important, or the bot won't be allowed to message you!).
 
-### 2. Configure n8n
-1. **Start the n8n server**: 
-   - Double-click `start-n8n.bat` (Windows) or run `n8n start` manually.
-2. **Access n8n dashboard**:
+### 2. Configure and Run n8n
+1. **Configure Environment Variables**:
+   - Open [start-n8n.bat](file:///c:/Users/maclaun/Desktop/auton8n/ai-claim-parser/start-n8n.bat) in any text editor.
+   - Insert your Telegram bot token and chat ID into the configuration section:
+     ```bat
+     set "TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN"
+     set "TELEGRAM_CHAT_ID=YOUR_TELEGRAM_CHAT_ID"
+     ```
+2. **Start the n8n server**: 
+   - Double-click [start-n8n.bat](file:///c:/Users/maclaun/Desktop/auton8n/ai-claim-parser/start-n8n.bat) to run the server.
+3. **Access n8n dashboard**:
    - Open http://localhost:5678 in your browser and complete the initial setup.
-3. **Import the workflow**:
-   - Click "Build workflow".
+4. **Import the workflow**:
+   - Click **Build workflow**.
    - Open the menu in the top-right corner (three dots) and select **Import from File**.
    - Choose the `n8n-workflow.json` file from the root of this project.
-4. **Link your Telegram Credentials**:
-   - Double-click the **Telegram: Send Alert** node.
-   - Under *Credential to connect with*, click *Select Credential* -> *Create New Credential*.
-   - Paste your **API Token** from BotFather and save.
-   - In the **Chat ID** field, replace `YOUR_TELEGRAM_CHAT_ID` with your actual ID from `@userinfobot`.
-   - Do the exact same for the **Telegram: Status Update** node.
+5. **No Credentials Needed**:
+   - The workflow uses the environment variables you defined in `start-n8n.bat`. The Telegram HTTP nodes automatically read them via `{{ $env.TELEGRAM_BOT_TOKEN }}` and `{{ $env.TELEGRAM_CHAT_ID }}`. No manual setup in n8n is required!
 
 ### 3. Connect Flask back-notifications (Optional)
 If you want the dashboard "Approve/Reject" buttons to trigger Telegram messages:
