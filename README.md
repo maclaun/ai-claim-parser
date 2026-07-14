@@ -23,37 +23,34 @@ An AI-powered microservice that simulates how an insurance/compensation company 
 
 ## Quick Start
 
-### 1. Clone and set up
+### 1. Clone and Setup
+For Windows users, we have automated the environment setup:
+1. Double-click [setup.bat](file:///c:/Users/maclaun/Desktop/auton8n/ai-claim-parser/setup.bat). This will create a Python virtual environment, install dependencies, and create your `.env` file.
 
+*For macOS/Linux users, run manually:*
 ```bash
 cd ai-claim-parser
 python -m venv venv
-
-# Windows
-.\venv\Scripts\activate
-
-# macOS/Linux
 source venv/bin/activate
-
 pip install -r requirements.txt
-```
-
-### 2. Configure API key (optional)
-
-```bash
 cp .env.example .env
-# Edit .env and add your GROQ_API_KEY and/or GEMINI_API_KEY
 ```
 
-> Without any API keys, the app runs in **mock mode** with simulated AI responses (marked with `[MOCK]` prefix).
+### 2. Configure Credentials
+1. Open `.env` and paste your `GROQ_API_KEY`.
+2. Open [start-n8n.bat](file:///c:/Users/maclaun/Desktop/auton8n/ai-claim-parser/start-n8n.bat) and paste your Telegram bot credentials (token and chat ID).
 
-### 3. Run
+> Without API keys, the app runs in **mock mode** with local regex parsing.
 
+### 3. Run Everything in One Click
+For Windows users, run both the Flask server and n8n server concurrently:
+1. Double-click [start-all.bat](file:///c:/Users/maclaun/Desktop/auton8n/ai-claim-parser/start-all.bat).
+
+*For macOS/Linux, run manually:*
 ```bash
 python app.py
 ```
-
-Open http://localhost:5000 in your browser.
+Flask app will open at http://localhost:5000.
 
 ## n8n & Telegram Integration (Optional)
 
