@@ -1,0 +1,136 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "incoming-email-trigger",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "webhook-trigger",
+      "name": "Webhook (Incoming Email)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5000/api/incoming-claim",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"sender_email\": \"{{ $json.body.email }}\", \"raw_text\": \"{{ $json.body.message }}\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "http-flask-backend",
+      "name": "Send to Flask AI Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "type": "string"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "Requires Human Review",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ],
+      "id": "check-status",
+      "name": "If Needs Review?"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        740,
+        -100
+      ],
+      "id": "alert-manager",
+      "name": "Alert Manager (High Priority)"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        740,
+        100
+      ],
+      "id": "auto-process",
+      "name": "Add to Google Sheets / CRM"
+    }
+  ],
+  "connections": {
+    "Webhook (Incoming Email)": {
+      "main": [
+        [
+          {
+            "node": "Send to Flask AI Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Flask AI Parser": {
+      "main": [
+        [
+          {
+            "node": "If Needs Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Needs Review?": {
+      "main": [
+        [
+          {
+            "node": "Alert Manager (High Priority)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add to Google Sheets / CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

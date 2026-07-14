@@ -55,6 +55,24 @@ python app.py
 
 Open http://localhost:5000 in your browser.
 
+## n8n Integration (Optional)
+
+This repository includes a pre-configured n8n workflow file: [n8n-workflow.json](file:///c:/Users/maclaun/Desktop/auton8n/ai-claim-parser/n8n-workflow.json).
+
+To set up the n8n automation locally:
+1. **Start the n8n server**: 
+   - Double-click `start-n8n.bat` (Windows) or run `n8n start` manually.
+2. **Access n8n dashboard**:
+   - Open http://localhost:5678 in your browser and complete the initial setup.
+3. **Import the workflow**:
+   - Click "Build workflow".
+   - Open the menu in the top-right corner (three dots) and select **Import from File**.
+   - Choose the `n8n-workflow.json` file from the root of this project.
+4. **Test the integration**:
+   - Make sure your Flask server is running on port 5000.
+   - Click the orange **"Execute workflow"** button in n8n.
+   - Send a test payload to your n8n webhook URL to see the data parsed by Llama 3.1 8B in real time!
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
